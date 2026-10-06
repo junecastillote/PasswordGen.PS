@@ -25,13 +25,6 @@ function New-PGenRandomPassphrase {
         [int]$NumberLength = 2,
 
         [Parameter()]
-        [switch]$AddSpecial,
-
-        [Parameter()]
-        [ValidateNotNullOrEmpty()]
-        [string]$SpecialCharacters = '!@#$%^&*',
-
-        [Parameter()]
         [switch]$CopyToClipboard,
 
         [Parameter()]
@@ -64,21 +57,6 @@ function New-PGenRandomPassphrase {
         else {
             Write-Debug "Word count loaded from source: $($words.Count)"
             Write-Debug "Random word = $($words[$([System.Security.Cryptography.RandomNumberGenerator]::GetInt32(0,($words.count - 1)))])"
-        }
-
-        $normalizedSpecialCharacters = -join (
-            $SpecialCharacters.ToCharArray() |
-            Select-Object -Unique
-        )
-
-        if (
-            $AddSpecial -and
-            [string]::IsNullOrEmpty($normalizedSpecialCharacters)
-        ) {
-            throw (
-                'SpecialCharacters must contain at least one character ' +
-                'when AddSpecial is specified.'
-            )
         }
 
         $randomNumberGenerator =
@@ -201,16 +179,6 @@ function New-PGenRandomPassphrase {
                 $passphraseParts.Add($numberValue)
             }
 
-            $specialValue = $null
-
-            if ($AddSpecial) {
-                $specialValue = Get-CryptoRandomCharacter `
-                    -CharacterPool $normalizedSpecialCharacters
-
-
-                $passphraseParts.Add($specialValue)
-            }
-
             $passphrase = $passphraseParts -join $Separator
 
             if ($CopyToClipboard) {
@@ -252,20 +220,10 @@ current PowerShell session.
                     )
                 }
 
-                $specialEntropyBits = 0
-
-                if ($AddSpecial) {
-                    $specialEntropyBits = [System.Math]::Log(
-                        $normalizedSpecialCharacters.Length,
-                        2
-                    )
-                }
-
                 $estimatedEntropyBits = [System.Math]::Round(
                     (
                         $wordEntropyBits +
-                        $numberEntropyBits +
-                        $specialEntropyBits
+                        $numberEntropyBits
                     ),
                     2
                 )
@@ -286,8 +244,6 @@ current PowerShell session.
                     NumberAdded          = [bool]$AddNumber
                     NumberLength         = $effectiveNumberLength
                     NumberValue          = $numberValue
-                    SpecialAdded         = [bool]$AddSpecial
-                    SpecialValue         = $specialValue
                     WordListSize         = $words.Count
                     WordListSource       = 'EFF Large Word List'
                     EstimatedEntropyBits = $estimatedEntropyBits
@@ -300,7 +256,6 @@ current PowerShell session.
         finally {
             $passphrase = $null
             $numberValue = $null
-            $specialValue = $null
         }
     }
 

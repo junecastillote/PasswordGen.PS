@@ -100,10 +100,11 @@ Describe 'New-PGenRandomPassphrase' {
 
             $result = New-PGenRandomPassphrase `
                 -AddNumber `
-                -NumberLength 4
+                -NumberLength 4 `
+                -PassThruObject
 
-            $result |
-            Should -Match '[0-9]{4}$'
+            $result.NumberValue |
+            Should -Match '^[0-9]{4}$'
         }
     }
 

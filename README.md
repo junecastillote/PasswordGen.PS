@@ -21,7 +21,7 @@ Generate random passwords using configurable character sets:
 
 ### Passphrase Generation
 
-Generate memorable passphrases using the EFF Large Word List:
+Generate memorable passphrases using the [EFF Large Word List](https://www.eff.org/deeplinks/2016/07/new-wordlists-random-passphrases):
 
 - Configurable word count
 - Configurable separators

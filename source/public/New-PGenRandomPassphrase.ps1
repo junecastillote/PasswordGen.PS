@@ -1,4 +1,184 @@
 function New-PGenRandomPassphrase {
+    <#
+.SYNOPSIS
+Generates a cryptographically secure random passphrase.
+
+.DESCRIPTION
+Generates a random passphrase from the EFF Large Word List loaded by the
+PasswordGen.PS module.
+
+Words are selected using a cryptographically secure random number generator
+and words are not repeated within a single passphrase.
+
+Optional features include word capitalization, numeric suffix generation,
+clipboard copying, SecureString output, and metadata output.
+
+The default passphrase contains four randomly selected words separated by
+a hyphen (-).
+
+.PARAMETER WordCount
+Specifies the number of words to include in the generated passphrase.
+
+Default: 4
+
+.PARAMETER Separator
+Specifies the separator inserted between words.
+
+Default: -
+
+Examples:
+
+-
+_
+.
+@
+
+.PARAMETER CapitalizeWords
+Converts each selected word to title case.
+
+Example:
+
+Forest-Lantern-Silver-Ocean
+
+.PARAMETER AddNumber
+Appends a randomly generated numeric component to the passphrase.
+
+Example:
+
+Forest-Lantern-Silver-Ocean-42
+
+.PARAMETER NumberLength
+Specifies the number of digits to generate when AddNumber is specified.
+
+Default: 2
+
+.PARAMETER CopyToClipboard
+Copies the generated passphrase to the clipboard.
+
+The passphrase is still returned to the pipeline.
+
+.PARAMETER AsSecureString
+Returns the generated passphrase as a SecureString.
+
+This parameter cannot be used together with PassThruObject.
+
+.PARAMETER PassThruObject
+Returns a PSCustomObject containing the generated passphrase and
+additional metadata.
+
+This parameter cannot be used together with AsSecureString.
+
+.OUTPUTS
+System.String
+
+Returned by default.
+
+.OUTPUTS
+System.Security.SecureString
+
+Returned when AsSecureString is specified.
+
+.OUTPUTS
+System.Management.Automation.PSCustomObject
+
+Returned when PassThruObject is specified.
+
+.EXAMPLE
+New-PGenRandomPassphrase
+
+Example output:
+
+forest-lantern-silver-ocean
+
+.EXAMPLE
+New-PGenRandomPassphrase -WordCount 6
+
+Example output:
+
+forest-lantern-silver-ocean-river-anchor
+
+.EXAMPLE
+New-PGenRandomPassphrase -CapitalizeWords
+
+Example output:
+
+Forest-Lantern-Silver-Ocean
+
+.EXAMPLE
+New-PGenRandomPassphrase `
+    -Separator '_'
+
+Example output:
+
+forest_lantern_silver_ocean
+
+.EXAMPLE
+New-PGenRandomPassphrase `
+    -AddNumber
+
+Example output:
+
+forest-lantern-silver-ocean-42
+
+.EXAMPLE
+New-PGenRandomPassphrase `
+    -AddNumber `
+    -NumberLength 4
+
+Example output:
+
+forest-lantern-silver-ocean-4829
+
+.EXAMPLE
+New-PGenRandomPassphrase `
+    -CapitalizeWords `
+    -AddNumber `
+    -PassThruObject
+
+Returns an object similar to:
+
+Passphrase           : Forest-Lantern-Silver-Ocean-42
+Length               : 32
+WordCount            : 4
+Words                : {Forest, Lantern, Silver, Ocean}
+Separator            : -
+WordsCapitalized     : True
+NumberAdded          : True
+NumberLength         : 2
+NumberValue          : 42
+WordListSize         : 7776
+WordListSource       : EFF Large Word List
+EstimatedEntropyBits : 58.34
+CopiedToClipboard    : False
+
+.EXAMPLE
+New-PGenRandomPassphrase `
+    -CopyToClipboard
+
+Generates a passphrase and copies it to the clipboard.
+
+.EXAMPLE
+New-PGenRandomPassphrase `
+    -AsSecureString
+
+Generates a passphrase and returns it as a SecureString.
+
+.NOTES
+Words are selected from the EFF Large Word List loaded during module
+import.
+
+Passphrases are generated using
+System.Security.Cryptography.RandomNumberGenerator.
+
+Compatible with:
+
+- Windows PowerShell 5.1
+- PowerShell 7+
+
+.LINK
+https://github.com/junecastillote/PasswordGen.PS
+
+#>
     [CmdletBinding()]
     [OutputType(
         [string],
@@ -53,10 +233,6 @@ function New-PGenRandomPassphrase {
                 "The word list contains only $($words.Count) unique words, " +
                 "but WordCount requires $WordCount unique words."
             )
-        }
-        else {
-            Write-Debug "Word count loaded from source: $($words.Count)"
-            Write-Debug "Random word = $($words[$([System.Security.Cryptography.RandomNumberGenerator]::GetInt32(0,($words.count - 1)))])"
         }
 
         $randomNumberGenerator =
@@ -157,6 +333,7 @@ function New-PGenRandomPassphrase {
             }
 
             $numberValue = $null
+            $numberWordIndex = $null
 
             if ($AddNumber) {
                 $numberCharacters =
@@ -167,16 +344,22 @@ function New-PGenRandomPassphrase {
                     $numberIndex -lt $NumberLength
                     $numberIndex++
                 ) {
-                    $numberCharacters.Add(
-                        (
-                            Get-CryptoRandomCharacter `
-                                -CharacterPool '0123456789'
-                        )
-                    )
+                    $randomNumberCharacter = Get-CryptoRandomCharacter `
+                        -CharacterPool '0123456789'
+
+                    $numberCharacters.Add($randomNumberCharacter)
                 }
 
                 $numberValue = -join $numberCharacters
-                $passphraseParts.Add($numberValue)
+
+                # Select one of the passphrase words and append the number.
+                $numberWordIndex = Get-CryptoRandomIndex `
+                    -UpperBound $passphraseParts.Count
+
+                $passphraseParts[$numberWordIndex] = (
+                    $passphraseParts[$numberWordIndex] +
+                    $numberValue
+                )
             }
 
             $passphrase = $passphraseParts -join $Separator
@@ -234,16 +417,25 @@ current PowerShell session.
                     $effectiveNumberLength = $NumberLength
                 }
 
+                $numberWordPosition = $null
+
+                if ($AddNumber) {
+                    $numberWordPosition = $numberWordIndex + 1
+                }
+
                 return [pscustomobject][ordered]@{
                     Passphrase           = $passphrase
                     Length               = $passphrase.Length
                     WordCount            = $selectedWords.Count
                     Words                = $selectedWords.ToArray()
+                    PassphraseParts      = $passphraseParts.ToArray()
                     Separator            = $Separator
                     WordsCapitalized     = [bool]$CapitalizeWords
                     NumberAdded          = [bool]$AddNumber
                     NumberLength         = $effectiveNumberLength
                     NumberValue          = $numberValue
+                    NumberWordIndex      = $numberWordIndex
+                    NumberWordPosition   = $numberWordPosition
                     WordListSize         = $words.Count
                     WordListSource       = 'EFF Large Word List'
                     EstimatedEntropyBits = $estimatedEntropyBits

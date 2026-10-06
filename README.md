@@ -145,9 +145,9 @@ Grudge36-Smuggler-Symphonic-Squeegee
 
 ## Documentation
 
-- [INSTALLATION.md](docs/INSTALLATION.md)
-- [PASSWORDS.md](docs/PASSWORDS.md)
-- [PASSPHRASES.md](docs/PASSPHRASES.md)
+- [Installation](docs/INSTALLATION.md)
+- [New-PGenRandomPassword](docs/PASSWORDS.md)
+- [New-PGenRandomPassphrase](docs/PASSPHRASES.md)
 
 ## License
 
